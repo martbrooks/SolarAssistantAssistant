@@ -35,11 +35,16 @@ while (1) {
     my $device_mode = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
     my ( $plunge_start, $plunge_end, $plunge_price ) = in_plunge_window();
     _debug( "Device mode: $device_mode; Plunge Window: " . ( $plunge_price ? 'No' : 'Yes (' . $plunge_price . 'p)' ) );
+
+    #    if ( $device_mode ne 'Unknown' && $device_mode ne 'Battery first' ) {
+    #        change_inverter_node();
+    #    }
     sleep($poll_interval);
     $mqtt->tick();
 }
 
 $mqtt->disconnect();
+$dbh->disconnect();
 
 sub in_plunge_window {
     my $sth    = $dbh->prepare("select * from plunges where plunge_start <= now() and plunge_end >= now();");
@@ -48,6 +53,13 @@ sub in_plunge_window {
     if ($result) {
         return ( $result->{plunge_start}, $result->{plunge_end}, $result->{value_inc_vat} );
     }
+}
+
+sub change_inverter_mode {
+    my $newmode = shift;
+    $newmode = 'Battery first';
+    my $topic = "/solar_assistant/$inverter_id/device_mode/state";
+    $mqtt->publish( $topic => $newmode );
 }
 
 sub received {
