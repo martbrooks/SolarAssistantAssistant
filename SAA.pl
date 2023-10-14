@@ -41,7 +41,7 @@ while (1) {
         $plunge_info      = 'Yes (' . $plunge_price . 'p)';
         $is_plunge_window = 1;
     }
-    _debug("Device mode: $device_mode; Plunge Window: $plunge_info");
+    _debug("Inverter mode: $device_mode; Plunge Window: $plunge_info");
 
     if ( $device_mode eq '<Unknown>' ) {
         sleep($poll_interval);
@@ -76,7 +76,7 @@ sub in_plunge_window {
 sub change_inverter_mode {
     my ( $curmode, $newmode ) = @_;
     my $topic = "solar_assistant/$inverter_id/work_mode_priority/set";
-    _debug("Changing inverter from $curmode to $newmode");
+    _debug("Changing inverter from '$curmode' to '$newmode'.");
     $mqtt->publish( $topic => $newmode );
     sleep(3);
 }
