@@ -33,7 +33,8 @@ $mqtt->subscribe( $sa_mqtt_topic_prefix . '/#', \&received );
 $mqtt->tick();
 
 while (1) {
-    my $device_mode = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
+    my $device_mode    = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
+    my $preferred_mode = preferred_mode();
     my ( $plunge_start, $plunge_end, $plunge_price ) = in_plunge_window();
     my $plunge_info      = 'No';
     my $is_plunge_window = 0;
@@ -41,7 +42,7 @@ while (1) {
         $plunge_info      = 'Yes (' . $plunge_price . 'p)';
         $is_plunge_window = 1;
     }
-    _debug("Inverter mode: $device_mode; Plunge Window: $plunge_info");
+    _debug("Inverter mode: $device_mode; Preferred mode: $preferred_mode; Plunge Window: $plunge_info");
 
     if ( $device_mode eq '<Unknown>' ) {
         sleep($poll_interval);
@@ -70,6 +71,15 @@ sub in_plunge_window {
     my $result = $sth->fetchrow_hashref;
     if ($result) {
         return ( $result->{plunge_start}, $result->{plunge_end}, $result->{value_inc_vat} );
+    }
+}
+
+sub preferred_mode {
+    my $sth    = $dbh->prepare("select inverter_mode from preferred_mode_times where start_time <= now()::time and finish_time >= now()::time;");
+    my $rv     = $sth->execute() or die $DBI::errstr;
+    my $result = $sth->fetchrow_hashref;
+    if ($result) {
+        return ( $result->{inverter_mode} );
     }
 }
 
