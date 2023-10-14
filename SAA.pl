@@ -36,9 +36,17 @@ while (1) {
     _debug("Device mode: $device_mode; Load power: $load_power");
     sleep(5);
     $mqtt->tick();
+    in_plunge_window();
 }
 
 $mqtt->disconnect();
+
+sub in_plunge_window {
+    my $sth = $dbh->prepare("SELECT COUNT(*) FROM plunges where plunge_start>=now() and plunge_end<=now()");
+    my $rv  = $sth->execute() or die $DBI::errstr;
+    my @result=$sth->fetchrow_array;
+    print Dumper \@result;
+}
 
 sub received {
     my ( $topic, $message ) = @_;
