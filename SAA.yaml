@@ -8,3 +8,5 @@ plunge_db_name: octopus_plunges
 plunge_db_user: martin
 
 inverter_id: 1
+
+plunge_threshold: 3

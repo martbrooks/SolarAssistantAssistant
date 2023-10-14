@@ -15,6 +15,7 @@ my $plunge_db_password = $config->{plunge_db_password} // '';
 my $plunge_db_host     = $config->{plunge_db_host}     // '';
 my $plunge_db_name     = $config->{plunge_db_name}     // '';
 my $plunge_db_user     = $config->{plunge_db_user}     // '';
+my $plunge_threshold   = $config->{plunge_threshold}   // 0;
 
 my $OCTOPUS_API = "https://api.octopus.energy/v1";
 my $PRODUCT     = 'AGILE-FLEX-22-11-25/electricity-tariffs/E-1R-AGILE-FLEX-22-11-25-A';
@@ -37,7 +38,7 @@ while (1) {
     my $data = JSON->new->utf8->decode( $res->content );
 
     foreach my $period ( @{ $data->{results} } ) {
-        if ( $period->{value_inc_vat} <= 0 ) {
+        if ( $period->{value_inc_vat} <= $plunge_threshold ) {
             my $key           = $period->{valid_from};
             my $format        = DateTime::Format::Strptime->new( pattern => '%FT%T%z' );
             my $dt            = $format->parse_datetime($key);
