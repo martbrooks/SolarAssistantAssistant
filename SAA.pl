@@ -78,6 +78,7 @@ sub change_inverter_mode {
     my $topic = "solar_assistant/$inverter_id/work_mode_priority/set";
     _debug("Changing inverter from $curmode to $newmode");
     $mqtt->publish( $topic => $newmode );
+    sleep(3);
 }
 
 sub received {
