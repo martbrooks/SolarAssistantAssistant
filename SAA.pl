@@ -24,9 +24,8 @@ my $sa_mqtt_port         = $config->{sa_mqtt_port};
 my $sa_mqtt_server       = $config->{sa_mqtt_server};
 my $sa_mqtt_topic_prefix = $config->{sa_mqtt_topic_prefix};
 
-my $dsn    = "DBI:$plunge_db_driver:dbname=$plunge_db_name";
-my $dbh    = DBI->connect( $dsn, "$plunge_db_user", "$plunge_db_password", { RaiseError => 1 } ) or die $DBI::errstr;
-my $plunge = in_plunge_window();
+my $dsn = "DBI:$plunge_db_driver:dbname=$plunge_db_name";
+my $dbh = DBI->connect( $dsn, "$plunge_db_user", "$plunge_db_password", { RaiseError => 1 } ) or die $DBI::errstr;
 
 my $mqtt = Net::MQTT::Simple->new("$sa_mqtt_server:$sa_mqtt_port");
 $mqtt->subscribe( $sa_mqtt_topic_prefix . '/#', \&received );
@@ -34,7 +33,7 @@ $mqtt->tick();
 
 while (1) {
     my $device_mode = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
-    $plunge = in_plunge_window();
+    my $plunge      = in_plunge_window();
     _debug( "Device mode: $device_mode; Plunge Window: " . ( $plunge eq 'NaN' ? 'No' : 'Yes (' . $plunge . 'p)' ) );
     sleep($poll_interval);
     $mqtt->tick();
