@@ -34,7 +34,11 @@ $mqtt->tick();
 while (1) {
     my $device_mode = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
     my ( $plunge_start, $plunge_end, $plunge_price ) = in_plunge_window();
-    _debug( "Device mode: $device_mode; Plunge Window: " . ( $plunge_price ? 'No' : 'Yes (' . $plunge_price . 'p)' ) );
+    my $plunge_window = 'No';
+    if ( defined $plunge_price ) {
+        $plunge_window = 'Yes (' . $plunge_price . 'p)';
+    }
+    _debug("Device mode: $device_mode; Plunge Window: $plunge_window");
 
     #    if ( $device_mode ne 'Unknown' && $device_mode ne 'Battery first' ) {
     #        change_inverter_node();
