@@ -23,8 +23,9 @@ my $sa_mqtt_port         = $config->{sa_mqtt_port};
 my $sa_mqtt_server       = $config->{sa_mqtt_server};
 my $sa_mqtt_topic_prefix = $config->{sa_mqtt_topic_prefix};
 
-my $dsn = "DBI:$plunge_db_driver:dbname=$plunge_db_name";
-my $dbh = DBI->connect( $dsn, "$plunge_db_user", "$plunge_db_password", { RaiseError => 1 } ) or die $DBI::errstr;
+my $dsn    = "DBI:$plunge_db_driver:dbname=$plunge_db_name";
+my $dbh    = DBI->connect( $dsn, "$plunge_db_user", "$plunge_db_password", { RaiseError => 1 } ) or die $DBI::errstr;
+my $plunge = in_plunge_window();
 
 my $mqtt = Net::MQTT::Simple->new("$sa_mqtt_server:$sa_mqtt_port");
 $mqtt->subscribe( $sa_mqtt_topic_prefix . '/#', \&received );
@@ -32,8 +33,7 @@ $mqtt->tick();
 
 while (1) {
     my $device_mode = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
-    my $load_power  = $state{solar_assistant}{$inverter_id}{load_power}{state}  // '<Unknown>';
-    _debug("Device mode: $device_mode; Load power: $load_power");
+    _debug( "Device mode: $device_mode; Plunge Window: " . ( $plunge eq 'NaN' ? 'No' : 'Yes (' . $plunge . 'p)' ) );
     sleep(5);
     $mqtt->tick();
     in_plunge_window();
@@ -42,10 +42,14 @@ while (1) {
 $mqtt->disconnect();
 
 sub in_plunge_window {
-    my $sth = $dbh->prepare("SELECT COUNT(*) FROM plunges where plunge_start>=now() and plunge_end<=now()");
-    my $rv  = $sth->execute() or die $DBI::errstr;
-    my @result=$sth->fetchrow_array;
-    print Dumper \@result;
+    my $value_inc_vat = 'NaN';
+    my $sth           = $dbh->prepare("select * from plunges where plunge_start <= now() and plunge_end >= now();");
+    my $rv            = $sth->execute() or die $DBI::errstr;
+    my $result        = $sth->fetchrow_hashref;
+    if ($result) {
+        $value_inc_vat = $result->{value_inc_vat};
+    }
+    return $value_inc_vat;
 }
 
 sub received {

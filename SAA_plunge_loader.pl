@@ -8,6 +8,14 @@ use JSON;
 use LWP::UserAgent;
 use YAML::XS 'LoadFile';
 
+my $config = LoadFile('SAA.yaml');
+
+my $plunge_db_driver   = $config->{plunge_db_driver}   // 'Pg';
+my $plunge_db_password = $config->{plunge_db_password} // '';
+my $plunge_db_host     = $config->{plunge_db_host}     // '';
+my $plunge_db_name     = $config->{plunge_db_name}     // '';
+my $plunge_db_user     = $config->{plunge_db_user}     // '';
+
 my $OCTOPUS_API = "https://api.octopus.energy/v1";
 my $PRODUCT     = 'AGILE-FLEX-22-11-25/electricity-tariffs/E-1R-AGILE-FLEX-22-11-25-A';
 my $ua          = LWP::UserAgent->new;
@@ -35,7 +43,7 @@ while (1) {
             my $dt            = $format->parse_datetime($key);
             my $value_inc_vat = $period->{value_inc_vat};
             next if $dt < DateTime->now;
-            $plunge{$key}{value_inc_vat} = sprintf( "%.3fp", $value_inc_vat );
+            $plunge{$key}{value_inc_vat} = sprintf( "%.3f", $value_inc_vat );
             $plunge{$key}{valid_to}      = $period->{valid_to};
         }
     }
@@ -49,11 +57,10 @@ if ( scalar keys %plunge == 0 ) {
     exit 0;
 }
 
-my $driver   = "Pg";
-my $database = "octopus_plunges";
-my $dsn      = "DBI:$driver:dbname = $database";
-my $dbh      = DBI->connect( $dsn, "martin", "", { RaiseError => 1 } ) or die $DBI::errstr;
-my $sth      = $dbh->prepare("INSERT INTO plunges VALUES ( ?, ?, ?)");
+my $dsn = "DBI:$plunge_db_driver:dbname=$plunge_db_name";
+my $dbh = DBI->connect( $dsn, "$plunge_db_user", "$plunge_db_password", { RaiseError => 1 } ) or die $DBI::errstr;
+my $sth = $dbh->prepare("INSERT INTO plunges VALUES ( ?, ?, ?)");
 foreach my $key ( keys %plunge ) {
     my $rv = $sth->execute( $key, $plunge{$key}{valid_to}, $plunge{$key}{value_inc_vat} ) or die $DBI::errstr;
 }
+$dbh->disconnect();
