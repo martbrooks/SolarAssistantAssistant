@@ -40,9 +40,10 @@ while (1) {
     }
     _debug("Device mode: $device_mode; Plunge Window: $plunge_window");
 
-    #    if ( $device_mode ne 'Unknown' && $device_mode ne 'Battery first' ) {
-    #        change_inverter_node();
-    #    }
+    if ( $device_mode ne '<Unknown>' && $device_mode ne 'Battery first' && $plunge_window ne 'No' ) {
+        change_inverter_mode( $device_mode, 'Battery first' );
+    }
+
     sleep($poll_interval);
     $mqtt->tick();
 }
@@ -60,9 +61,9 @@ sub in_plunge_window {
 }
 
 sub change_inverter_mode {
-    my $newmode = shift;
-    $newmode = 'Battery first';
-    my $topic = "/solar_assistant/$inverter_id/device_mode/state";
+    my ( $curmode, $newmode ) = @_;
+    my $topic = "solar_assistant/$inverter_id/work_mode_priority/set";
+    _debug("Changing inverter from $curmode to $newmode");
     $mqtt->publish( $topic => $newmode );
 }
 
