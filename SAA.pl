@@ -44,6 +44,10 @@ while (1) {
         change_inverter_mode( $device_mode, 'Battery first' );
     }
 
+    if ( $device_mode ne '<Unknown>' && $device_mode ne 'Load first' && $plunge_window ne 'Yes' ) {
+        change_inverter_mode( $device_mode, 'Load first' );
+    }
+
     sleep($poll_interval);
     $mqtt->tick();
 }
