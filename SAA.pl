@@ -33,8 +33,8 @@ $mqtt->tick();
 
 while (1) {
     my $device_mode = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
-    my $plunge      = in_plunge_window();
-    _debug( "Device mode: $device_mode; Plunge Window: " . ( $plunge eq 'NaN' ? 'No' : 'Yes (' . $plunge . 'p)' ) );
+    my ( $plunge_start, $plunge_end, $plunge_price ) = in_plunge_window();
+    _debug( "Device mode: $device_mode; Plunge Window: " . ( $plunge_price ? 'No' : 'Yes (' . $plunge_price . 'p)' ) );
     sleep($poll_interval);
     $mqtt->tick();
 }
@@ -42,14 +42,12 @@ while (1) {
 $mqtt->disconnect();
 
 sub in_plunge_window {
-    my $value_inc_vat = 'NaN';
-    my $sth           = $dbh->prepare("select * from plunges where plunge_start <= now() and plunge_end >= now();");
-    my $rv            = $sth->execute() or die $DBI::errstr;
-    my $result        = $sth->fetchrow_hashref;
+    my $sth    = $dbh->prepare("select * from plunges where plunge_start <= now() and plunge_end >= now();");
+    my $rv     = $sth->execute() or die $DBI::errstr;
+    my $result = $sth->fetchrow_hashref;
     if ($result) {
-        $value_inc_vat = $result->{value_inc_vat};
+        return ( $result->{plunge_start}, $result->{plunge_end}, $result->{value_inc_vat} );
     }
-    return $value_inc_vat;
 }
 
 sub received {
