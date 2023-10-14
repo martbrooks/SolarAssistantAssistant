@@ -19,6 +19,7 @@ my $plunge_db_password   = $config->{plunge_db_password} // '';
 my $plunge_db_host       = $config->{plunge_db_host}     // '';
 my $plunge_db_name       = $config->{plunge_db_name}     // '';
 my $plunge_db_user       = $config->{plunge_db_user}     // '';
+my $poll_interval        = $config->{poll_interval}      // 60;
 my $sa_mqtt_port         = $config->{sa_mqtt_port};
 my $sa_mqtt_server       = $config->{sa_mqtt_server};
 my $sa_mqtt_topic_prefix = $config->{sa_mqtt_topic_prefix};
@@ -33,10 +34,10 @@ $mqtt->tick();
 
 while (1) {
     my $device_mode = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
+    $plunge = in_plunge_window();
     _debug( "Device mode: $device_mode; Plunge Window: " . ( $plunge eq 'NaN' ? 'No' : 'Yes (' . $plunge . 'p)' ) );
-    sleep(5);
+    sleep($poll_interval);
     $mqtt->tick();
-    in_plunge_window();
 }
 
 $mqtt->disconnect();
