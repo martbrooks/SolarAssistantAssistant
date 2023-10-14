@@ -40,11 +40,16 @@ while (1) {
     }
     _debug("Device mode: $device_mode; Plunge Window: $plunge_window");
 
-    if ( $device_mode ne '<Unknown>' && $device_mode ne 'Battery first' && $plunge_window ne 'No' ) {
+    if ( $device_mode eq '<Unknown>' ) {
+        $mqtt->tick();
+        next;
+    }
+
+    if ( $plunge_window eq 'Yes' && $device_mode ne 'Battery first' ) {
         change_inverter_mode( $device_mode, 'Battery first' );
     }
 
-    if ( $device_mode ne '<Unknown>' && $device_mode ne 'Load first' && $plunge_window ne 'Yes' ) {
+    if ( $plunge_window eq 'No' && $device_mode ne 'Load first' ) {
         change_inverter_mode( $device_mode, 'Load first' );
     }
 
