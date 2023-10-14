@@ -3,3 +3,6 @@ sa_mqtt_port: 1883
 sa_mqtt_username:
 sa_mqtt_password:
 sa_mqtt_topic_prefix: solar_assistant
+
+plunge_db: octopus_plunges
+plunge_db_user: martin

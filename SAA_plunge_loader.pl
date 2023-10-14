@@ -6,6 +6,7 @@ use DateTime::Format::Strptime;
 use DBI;
 use JSON;
 use LWP::UserAgent;
+use YAML::XS 'LoadFile';
 
 my $OCTOPUS_API = "https://api.octopus.energy/v1";
 my $PRODUCT     = 'AGILE-FLEX-22-11-25/electricity-tariffs/E-1R-AGILE-FLEX-22-11-25-A';
@@ -52,8 +53,7 @@ my $driver   = "Pg";
 my $database = "octopus_plunges";
 my $dsn      = "DBI:$driver:dbname = $database";
 my $dbh      = DBI->connect( $dsn, "martin", "", { RaiseError => 1 } ) or die $DBI::errstr;
-my $sth = $dbh->prepare( "INSERT INTO plunges VALUES ( ?, ?)");
+my $sth      = $dbh->prepare("INSERT INTO plunges VALUES ( ?, ?)");
 foreach my $key ( sort keys %plunge ) {
-    my $rv  = $sth->execute($key,$plunge{$key}{valid_to}) or die $DBI::errstr;
-    print "$key -> $plunge{$key}{valid_to}: $plunge{$key}{value_inc_vat}\n";
+    my $rv = $sth->execute( $key, $plunge{$key}{valid_to} ) or die $DBI::errstr;
 }

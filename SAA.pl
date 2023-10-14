@@ -33,7 +33,7 @@ $mqtt->disconnect();
 sub received {
     my ( $topic, $message ) = @_;
     my @keys = split( '/', $topic );
-    my $ref = \%state;
+    my $ref  = \%state;
     for my $i ( 0 .. $#keys - 1 ) {
         my $k = $keys[$i];
         $ref->{$k} ||= {};
