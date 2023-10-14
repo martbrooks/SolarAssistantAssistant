@@ -22,11 +22,9 @@ $mqtt->subscribe( $sa_mqtt_topic_prefix . "/#", \&received );
 
 while (1) {
     $mqtt->tick();
-
-    # Now do other stuff
     sleep(10);
-
-    _debug( "Load power: " . $state{solar_assistant}{$inverter_id}{load_power}{state} // '<Unknown>' );
+    my $load_power = $state{solar_assistant}{$inverter_id}{load_power}{state} // '<Unknown>';
+    _debug("Load power: $load_power");
 }
 
 $mqtt->disconnect();
