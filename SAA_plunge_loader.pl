@@ -53,7 +53,7 @@ my $driver   = "Pg";
 my $database = "octopus_plunges";
 my $dsn      = "DBI:$driver:dbname = $database";
 my $dbh      = DBI->connect( $dsn, "martin", "", { RaiseError => 1 } ) or die $DBI::errstr;
-my $sth      = $dbh->prepare("INSERT INTO plunges VALUES ( ?, ?)");
-foreach my $key ( sort keys %plunge ) {
-    my $rv = $sth->execute( $key, $plunge{$key}{valid_to} ) or die $DBI::errstr;
+my $sth      = $dbh->prepare("INSERT INTO plunges VALUES ( ?, ?, ?)");
+foreach my $key ( keys %plunge ) {
+    my $rv = $sth->execute( $key, $plunge{$key}{valid_to}, $plunge{$key}{value_inc_vat} ) or die $DBI::errstr;
 }
