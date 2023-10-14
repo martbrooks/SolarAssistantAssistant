@@ -7,6 +7,7 @@ use DateTime;
 use DateTime::Format::ISO8601;
 use DBI;
 use Net::MQTT::Simple;
+use Time::Piece;
 use YAML::XS 'LoadFile';
 
 my $debug  = 1;
@@ -41,6 +42,7 @@ while (1) {
     _debug("Device mode: $device_mode; Plunge Window: $plunge_window");
 
     if ( $device_mode eq '<Unknown>' ) {
+        sleep($poll_interval);
         $mqtt->tick();
         next;
     }
@@ -90,8 +92,9 @@ sub received {
 
 sub _debug {
     return unless $debug == 1;
-    my $message = shift;
-    my $dt      = DateTime->now;
-    my $ts      = $dt->iso8601;
+    my $message      = shift;
+    my $current_time = gmtime;
+    my $dt           = DateTime->from_epoch( epoch => $current_time->epoch, time_zone => 'local' );
+    my $ts           = $dt->strftime('%Y-%m-%dT%H:%M:%S%z');
     print "[$ts] $message\n";
 }
