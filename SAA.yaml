@@ -6,3 +6,5 @@ sa_mqtt_topic_prefix: solar_assistant
 
 plunge_db: octopus_plunges
 plunge_db_user: martin
+
+inverter_id: 1
