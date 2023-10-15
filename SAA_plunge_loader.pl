@@ -60,8 +60,10 @@ if ( scalar keys %plunge == 0 ) {
 
 my $dsn = "DBI:$plunge_db_driver:dbname=$plunge_db_name";
 my $dbh = DBI->connect( $dsn, "$plunge_db_user", "$plunge_db_password", { RaiseError => 1 } ) or die $DBI::errstr;
-my $sth = $dbh->prepare("INSERT INTO plunges VALUES ( ?, ?, ?)");
-foreach my $key ( keys %plunge ) {
+my $sth = $dbh->prepare("DELETE FROM plunges WHERE plunge_end <= now()");
+my $rv  = $dbh->execute();
+$sth = $dbh->prepare("INSERT INTO plunges VALUES ( ?, ?, ?)");
+foreach my $key ( sort keys %plunge ) {
     my $rv = $sth->execute( $key, $plunge{$key}{valid_to}, $plunge{$key}{value_inc_vat} ) or die $DBI::errstr;
 }
 $dbh->disconnect();

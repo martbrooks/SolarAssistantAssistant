@@ -34,7 +34,7 @@ $mqtt->tick();
 
 while (1) {
     my $device_mode    = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
-    my $preferred_mode = preferred_mode();
+    my $preferred_mode = preferred_mode()                                          // '<Unknown>';
     my ( $plunge_start, $plunge_end, $plunge_price ) = in_plunge_window();
     my $plunge_info      = 'No';
     my $is_plunge_window = 0;
