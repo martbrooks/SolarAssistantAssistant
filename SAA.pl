@@ -2,11 +2,13 @@
 
 use strict;
 use warnings;
-use Data::Dumper;
+
+use Data::Dumper::Concise;
 use DateTime;
 use DateTime::Format::ISO8601;
 use DBI;
 use Net::MQTT::Simple;
+use Term::ANSIColor;
 use Time::Piece;
 use YAML::XS 'LoadFile';
 
@@ -42,7 +44,9 @@ while (1) {
         $plunge_info      = 'Yes (' . $plunge_price . 'p)';
         $is_plunge_window = 1;
     }
-    _debug("Inverter mode: $device_mode; Preferred mode: $preferred_mode; Plunge Window: $plunge_info");
+
+    my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
+    _debug("Battery: $battery_charge_pcent, Inverter mode: $device_mode; Preferred mode: $preferred_mode; Plunge Window: $plunge_info");
 
     if ( $device_mode eq '<Unknown>' ) {
         sleep($poll_interval);
