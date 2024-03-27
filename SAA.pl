@@ -48,12 +48,6 @@ while (1) {
 
     my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
     $battery_charge_pcent = colour_battery_pcent($battery_charge_pcent);
-
-    for ( my $i = 100 ; $i > 0 ; $i = $i - 5 ) {
-        _debug( colour_battery_pcent($i) );
-    }
-    die;
-
     _debug("$battery_charge_pcent Inverter mode: $device_mode; Preferred mode: $preferred_mode; Plunge Window: $plunge_info");
 
     if ( $device_mode eq '<Unknown>' ) {
