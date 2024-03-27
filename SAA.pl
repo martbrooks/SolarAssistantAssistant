@@ -120,30 +120,20 @@ sub _debug {
 
 sub colour_battery_pcent {
     my $charge_pcent = shift;
-
-    # For true color terminals, the recognized foreground colors are rRRRgGGGbBBB for RRR, GGG, and BBB values between 0 and 255. Similarly, the recognized background colors are on_rRRRgGGGbBBB for RRR, GGG, and BBB values between 0 and 255.
     my ( $r, $g, $b ) = ( 0, 0, 0 );
-
     if ( $charge_pcent >= 50 ) {
-
-        # Transition from orange (50%) to green (100%)
-        $r = 255 * ( 100 - $charge_pcent ) / 50;    # Interpolate R from 255 to 0
-        $g = 255;                                   # Full green
+        $r = 255 * ( 100 - $charge_pcent ) / 50;
+        $g = 255;
         $b = 0;
     } elsif ( $charge_pcent > 10 ) {
-
-        # Transition from red (10%) to orange (50%)
-        $r = 255;                                   # Full red
-        $g = 165 * ( $charge_pcent - 10 ) / 40;     # Interpolate G from 0 to 165
+        $r = 255;
+        $g = 165 * ( $charge_pcent - 10 ) / 40;
         $b = 0;
     } else {
-
-        # Battery is at 10%, represent as pure red
         $r = 255;
         $g = $b = 0;
     }
     my $background = sprintf( "on_r%03dg%03db%03d", $r, $g, $b );
     my $battery    = pad( "$charge_pcent%", 9, "c" );
     return color("white $background") . $battery . color('reset');
-
 }
