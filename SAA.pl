@@ -48,6 +48,12 @@ while (1) {
 
     my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
     $battery_charge_pcent = colour_battery_pcent($battery_charge_pcent);
+
+    for ( my $i = 100 ; $i > 0 ; $i = $i - 5 ) {
+        _debug( colour_battery_pcent($i) );
+    }
+    die;
+
     _debug("$battery_charge_pcent Inverter mode: $device_mode; Preferred mode: $preferred_mode; Plunge Window: $plunge_info");
 
     if ( $device_mode eq '<Unknown>' ) {
@@ -120,20 +126,15 @@ sub _debug {
 
 sub colour_battery_pcent {
     my $charge_pcent = shift;
-    my ( $r, $g, $b ) = ( 0, 0, 0 );
-    if ( $charge_pcent >= 50 ) {
-        $r = 255 * ( 100 - $charge_pcent ) / 50;
-        $g = 255;
-        $b = 0;
-    } elsif ( $charge_pcent > 10 ) {
+    my ( $r, $g ) = ( 0, 0 );
+    if ( $charge_pcent <= 50 ) {
         $r = 255;
-        $g = 165 * ( $charge_pcent - 10 ) / 40;
-        $b = 0;
+        $g = int( 255 * ( $charge_pcent / 50 ) );
     } else {
-        $r = 255;
-        $g = $b = 0;
+        $r = int( 255 * ( ( 100 - $charge_pcent ) / 50 ) );
+        $g = 255;
     }
-    my $background = sprintf( "on_r%03dg%03db%03d", $r, $g, $b );
+    my $background = sprintf( "on_r%03dg%03db%03d", $r, $g, 0 );
     my $battery    = pad( "$charge_pcent%", 9, "c" );
-    return color("white $background") . $battery . color('reset');
+    return color("black $background") . $battery . color('reset');
 }
