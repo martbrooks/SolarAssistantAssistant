@@ -8,6 +8,7 @@ use DateTime;
 use DateTime::Format::ISO8601;
 use DBI;
 use Net::MQTT::Simple;
+use String::Pad qw(pad);
 use Term::ANSIColor;
 use Time::Piece;
 use YAML::XS 'LoadFile';
@@ -46,7 +47,8 @@ while (1) {
     }
 
     my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
-    _debug("Battery: $battery_charge_pcent, Inverter mode: $device_mode; Preferred mode: $preferred_mode; Plunge Window: $plunge_info");
+    $battery_charge_pcent = colour_battery_pcent($battery_charge_pcent);
+    _debug("$battery_charge_pcent Inverter mode: $device_mode; Preferred mode: $preferred_mode; Plunge Window: $plunge_info");
 
     if ( $device_mode eq '<Unknown>' ) {
         sleep($poll_interval);
@@ -114,4 +116,34 @@ sub _debug {
     my $dt           = DateTime->from_epoch( epoch => $current_time->epoch, time_zone => 'local' );
     my $ts           = $dt->strftime('%Y-%m-%dT%H:%M:%S%z');
     print "[$ts] $message\n";
+}
+
+sub colour_battery_pcent {
+    my $charge_pcent = shift;
+
+    # For true color terminals, the recognized foreground colors are rRRRgGGGbBBB for RRR, GGG, and BBB values between 0 and 255. Similarly, the recognized background colors are on_rRRRgGGGbBBB for RRR, GGG, and BBB values between 0 and 255.
+    my ( $r, $g, $b ) = ( 0, 0, 0 );
+
+    if ( $charge_pcent >= 50 ) {
+
+        # Transition from orange (50%) to green (100%)
+        $r = 255 * ( 100 - $charge_pcent ) / 50;    # Interpolate R from 255 to 0
+        $g = 255;                                   # Full green
+        $b = 0;
+    } elsif ( $charge_pcent > 10 ) {
+
+        # Transition from red (10%) to orange (50%)
+        $r = 255;                                   # Full red
+        $g = 165 * ( $charge_pcent - 10 ) / 40;     # Interpolate G from 0 to 165
+        $b = 0;
+    } else {
+
+        # Battery is at 10%, represent as pure red
+        $r = 255;
+        $g = $b = 0;
+    }
+    my $background = sprintf( "on_r%03dg%03db%03d", $r, $g, $b );
+    my $battery    = pad( "$charge_pcent%", 9, "c" );
+    return color("white $background") . $battery . color('reset');
+
 }
