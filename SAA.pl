@@ -60,8 +60,7 @@ sub change_inverter_mode {
 sub received {
     my ( $topic, $message ) = @_;
     my @keys = split( '/', $topic );
-    %state = ();
-    my $ref  = \%state;
+    my $ref = \%state;
     for my $i ( 0 .. $#keys - 1 ) {
         my $k = $keys[$i];
         $ref->{$k} ||= {};
@@ -97,9 +96,7 @@ sub colour_battery_pcent {
 
 sub _debug {
     return unless $debug == 1;
-    my $message      = shift;
-    my $current_time = gmtime;
-    my $dt           = DateTime->from_epoch( epoch => $current_time->epoch, time_zone => 'local' );
-    my $ts           = $dt->strftime('%Y-%m-%dT%H:%M:%S%z');
-    print "[$ts] $message\n";
+    my $message = shift;
+    my $now     = DateTime->now();
+    print "[$now] $message\n";
 }
