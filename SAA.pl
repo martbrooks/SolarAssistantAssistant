@@ -46,23 +46,23 @@ while (1) {
         $is_plunge_window = 1;
     }
 
-    my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
-    $battery_charge_pcent = colour_battery_pcent($battery_charge_pcent);
-    _debug("$battery_charge_pcent Inverter mode: $device_mode; Preferred mode: $preferred_mode; Plunge Window: $plunge_info");
-
     if ( $device_mode eq '<Unknown>' ) {
         sleep($poll_interval);
         $mqtt->tick();
         next;
     }
 
-    if ( $is_plunge_window && $device_mode ne 'Battery first' ) {
-        change_inverter_mode( $device_mode, 'Battery first' );
-    }
+    my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
+    $battery_charge_pcent = colour_battery_pcent($battery_charge_pcent);
+    _debug("$battery_charge_pcent Inverter mode: $device_mode; Preferred mode: $preferred_mode; Plunge Window: $plunge_info");
 
-#    if ( !$is_plunge_window && $device_mode ne 'Load first' ) {
-#        change_inverter_mode( $device_mode, 'Load first' );
-#    }
+    #if ( $is_plunge_window && $device_mode ne 'Battery first' ) {
+    #    change_inverter_mode( $device_mode, 'Battery first' );
+    #}
+
+    #    if ( !$is_plunge_window && $device_mode ne 'Load first' ) {
+    #        change_inverter_mode( $device_mode, 'Load first' );
+    #    }
 
     sleep($poll_interval);
     $mqtt->tick();
