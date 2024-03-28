@@ -60,6 +60,7 @@ sub change_inverter_mode {
 sub received {
     my ( $topic, $message ) = @_;
     my @keys = split( '/', $topic );
+    %state = ();
     my $ref  = \%state;
     for my $i ( 0 .. $#keys - 1 ) {
         my $k = $keys[$i];
