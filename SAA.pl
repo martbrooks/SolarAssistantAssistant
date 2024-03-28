@@ -60,9 +60,9 @@ while (1) {
         change_inverter_mode( $device_mode, 'Battery first' );
     }
 
-    if ( !$is_plunge_window && $device_mode ne 'Load first' ) {
-        change_inverter_mode( $device_mode, 'Load first' );
-    }
+#    if ( !$is_plunge_window && $device_mode ne 'Load first' ) {
+#        change_inverter_mode( $device_mode, 'Load first' );
+#    }
 
     sleep($poll_interval);
     $mqtt->tick();
