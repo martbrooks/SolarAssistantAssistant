@@ -5,7 +5,6 @@ use warnings;
 
 use Data::Dumper::Concise;
 use DateTime;
-use DateTime::Format::ISO8601;
 use DBI;
 use Net::MQTT::Simple;
 use String::Pad qw(pad);
@@ -18,18 +17,11 @@ my $config = LoadFile('SAA.yaml');
 my %state  = ();
 
 my $inverter_id          = 'inverter_' . $config->{inverter_id};
-my $plunge_db_driver     = $config->{plunge_db_driver}   // 'Pg';
-my $plunge_db_password   = $config->{plunge_db_password} // '';
-my $plunge_db_host       = $config->{plunge_db_host}     // '';
-my $plunge_db_name       = $config->{plunge_db_name}     // '';
-my $plunge_db_user       = $config->{plunge_db_user}     // '';
-my $poll_interval        = $config->{poll_interval}      // ( $debug == 1 ? 5 : 60 );
+my $sqlite_file          = $config->{database_file} // 'period_rates.db';
+my $poll_interval        = $config->{poll_interval} // ( $debug == 1 ? 5 : 60 );
 my $sa_mqtt_port         = $config->{sa_mqtt_port};
 my $sa_mqtt_server       = $config->{sa_mqtt_server};
 my $sa_mqtt_topic_prefix = $config->{sa_mqtt_topic_prefix};
-
-my $dsn = "DBI:$plunge_db_driver:dbname=$plunge_db_name";
-my $dbh = DBI->connect( $dsn, "$plunge_db_user", "$plunge_db_password", { RaiseError => 1 } ) or die $DBI::errstr;
 
 my $mqtt = Net::MQTT::Simple->new("$sa_mqtt_server:$sa_mqtt_port");
 $mqtt->subscribe( $sa_mqtt_topic_prefix . '/#', \&received );
@@ -37,57 +29,25 @@ $mqtt->tick();
 
 while (1) {
     my $device_mode    = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
-    my $preferred_mode = preferred_mode()                                          // '<Unknown>';
-    my ( $plunge_start, $plunge_end, $plunge_price ) = in_plunge_window();
-    my $plunge_info      = 'No';
-    my $is_plunge_window = 0;
-    if ( defined $plunge_price ) {
-        $plunge_info      = 'Yes (' . $plunge_price . 'p)';
-        $is_plunge_window = 1;
-    }
+    my $preferred_mode = '<Unknown>';
 
     if ( $device_mode eq '<Unknown>' ) {
-        sleep($poll_interval);
+        sleep(1);
         $mqtt->tick();
         next;
     }
 
     my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
     $battery_charge_pcent = colour_battery_pcent($battery_charge_pcent);
-    _debug("$battery_charge_pcent Inverter mode: $device_mode; Preferred mode: $preferred_mode; Plunge Window: $plunge_info");
+    my $current_rate = get_current_rate();
 
-    #if ( $is_plunge_window && $device_mode ne 'Battery first' ) {
-    #    change_inverter_mode( $device_mode, 'Battery first' );
-    #}
-
-    #    if ( !$is_plunge_window && $device_mode ne 'Load first' ) {
-    #        change_inverter_mode( $device_mode, 'Load first' );
-    #    }
+    _debug("$battery_charge_pcent Inverter mode: $device_mode; Current rate: $current_rate");
 
     sleep($poll_interval);
     $mqtt->tick();
 }
 
 $mqtt->disconnect();
-$dbh->disconnect();
-
-sub in_plunge_window {
-    my $sth    = $dbh->prepare("select * from plunges where plunge_start <= now() and plunge_end >= now();");
-    my $rv     = $sth->execute() or die $DBI::errstr;
-    my $result = $sth->fetchrow_hashref;
-    if ($result) {
-        return ( $result->{plunge_start}, $result->{plunge_end}, $result->{value_inc_vat} );
-    }
-}
-
-sub preferred_mode {
-    my $sth    = $dbh->prepare("select inverter_mode from preferred_mode_times where start_time <= now()::time and finish_time >= now()::time;");
-    my $rv     = $sth->execute() or die $DBI::errstr;
-    my $result = $sth->fetchrow_hashref;
-    if ($result) {
-        return ( $result->{inverter_mode} );
-    }
-}
 
 sub change_inverter_mode {
     my ( $curmode, $newmode ) = @_;
@@ -109,13 +69,14 @@ sub received {
     $ref->{ $keys[-1] } = $message;
 }
 
-sub _debug {
-    return unless $debug == 1;
-    my $message      = shift;
-    my $current_time = gmtime;
-    my $dt           = DateTime->from_epoch( epoch => $current_time->epoch, time_zone => 'local' );
-    my $ts           = $dt->strftime('%Y-%m-%dT%H:%M:%S%z');
-    print "[$ts] $message\n";
+sub get_current_rate {
+    my $dbh = DBI->connect( "dbi:SQLite:$sqlite_file", "", "" );
+    my $sth = $dbh->prepare("SELECT *  FROM period_rates WHERE period_start <= CURRENT_TIMESTAMP and period_end >= CURRENT_TIMESTAMP");
+    $sth->execute();
+    my $rate = $sth->fetchrow_hashref;
+    $sth->finish();
+    $dbh->disconnect();
+    return sprintf( '%.2f', $rate->{rate} );
 }
 
 sub colour_battery_pcent {
@@ -131,4 +92,13 @@ sub colour_battery_pcent {
     my $background = sprintf( "on_r%03dg%03db%03d", $r, $g, 0 );
     my $battery    = pad( "$charge_pcent%", 9, "c" );
     return color("black $background") . $battery . color('reset');
+}
+
+sub _debug {
+    return unless $debug == 1;
+    my $message      = shift;
+    my $current_time = gmtime;
+    my $dt           = DateTime->from_epoch( epoch => $current_time->epoch, time_zone => 'local' );
+    my $ts           = $dt->strftime('%Y-%m-%dT%H:%M:%S%z');
+    print "[$ts] $message\n";
 }
