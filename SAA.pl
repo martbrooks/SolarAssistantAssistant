@@ -47,12 +47,10 @@ while (1) {
 
     if ( $mqtt->tick() ) {
         my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
-        $battery_charge_pcent = colour_battery_pcent($battery_charge_pcent);
+        $battery_charge_pcent = color_battery_pcent( 'G', 10, 100, $battery_charge_pcent );
         my $current_rate   = get_current_rate();
         my $period_expires = period_data_expiration();
-
-        _debug("$battery_charge_pcent Inverter mode: $device_mode; Current rate: $current_rate; Rate period data expires in $period_expires");
-
+        _debug( "$battery_charge_pcent Inverter mode: $device_mode; Current rate: " . color_rate( 'R', 0, 50, $current_rate ) . "; Rate period data expires in $period_expires" );
         sleep($poll_interval);
     } else {
         _debug("Disconnected from MQTT server. Reconnecting.");
@@ -109,19 +107,37 @@ sub period_data_expiration {
     return $age;
 }
 
-sub colour_battery_pcent {
-    my $charge_pcent = shift;
-    my ( $r, $g ) = ( 0, 0 );
-    if ( $charge_pcent <= 50 ) {
-        $r = 255;
-        $g = int( 255 * ( $charge_pcent / 50 ) );
-    } else {
-        $r = int( 255 * ( ( 100 - $charge_pcent ) / 50 ) );
-        $g = 255;
+sub calculate_rgb {
+    my ( $mode, $min, $max, $actual ) = @_;
+    if ( $actual < $min ) {
+        $actual = $min;
     }
-    my $background = sprintf( "on_r%03dg%03db%03d", $r, $g, 0 );
-    my $battery    = pad( "$charge_pcent%", 9, "c" );
-    return color("black $background") . $battery . color('reset');
+    if ( $actual > $max ) {
+        $actual = $max;
+    }
+    my $percentage = ( $actual - $min ) / ( $max - $min );
+    my ( $r, $g );
+    if ( $mode eq 'R' ) {
+        $r = int( 255 * $percentage );
+        $g = int( 255 * ( 1 - $percentage ) );
+    } else {
+        $r = int( 255 * ( 1 - $percentage ) );
+        $g = int( 255 * $percentage );
+    }
+    return sprintf( "r%03dg%03db%03d", $r, $g, 0 );
+}
+
+sub color_rate {
+    my ( $mode, $min, $max, $actual ) = @_;
+    my $color = calculate_rgb( $mode, $min, $max, $actual );
+    return color("$color") . $actual . color('reset');
+}
+
+sub color_battery_pcent {
+    my ( $mode, $min, $max, $actual ) = @_;
+    my $background = calculate_rgb( $mode, $min, $max, $actual );
+    my $battery    = pad( "$actual%", 9, "c" );
+    return color("black on_$background") . $battery . color('reset');
 }
 
 sub refresh_period_data {
