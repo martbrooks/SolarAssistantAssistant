@@ -130,7 +130,7 @@ sub calculate_rgb {
 sub color_rate {
     my ( $mode, $min, $max, $actual ) = @_;
     my $color = calculate_rgb( $mode, $min, $max, $actual );
-    return color("$color") . $actual . color('reset');
+    return color("bold $color") . $actual . color('reset');
 }
 
 sub color_battery_pcent {
