@@ -1,4 +1,4 @@
-sa_mqtt_server: 127.0.0.1
+sa_mqtt_server: 10.119.48.62
 sa_mqtt_port: 1883
 sa_mqtt_username:
 sa_mqtt_password:

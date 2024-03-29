@@ -45,15 +45,18 @@ while (1) {
         next;
     }
 
-    my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
-    $battery_charge_pcent = colour_battery_pcent($battery_charge_pcent);
-    my $current_rate   = get_current_rate();
-    my $period_expires = period_data_expiration();
+    if ( $mqtt->tick() ) {
+        my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
+        $battery_charge_pcent = colour_battery_pcent($battery_charge_pcent);
+        my $current_rate   = get_current_rate();
+        my $period_expires = period_data_expiration();
 
-    _debug("$battery_charge_pcent Inverter mode: $device_mode; Current rate: $current_rate; Rate period data expires in $period_expires");
+        _debug("$battery_charge_pcent Inverter mode: $device_mode; Current rate: $current_rate; Rate period data expires in $period_expires");
 
-    sleep($poll_interval);
-    $mqtt->tick();
+        sleep($poll_interval);
+    } else {
+        _debug("Disconnected from MQTT server. Reconnecting.");
+    }
 }
 
 $mqtt->disconnect();
