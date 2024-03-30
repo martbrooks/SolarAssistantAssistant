@@ -50,7 +50,7 @@ while (1) {
         $battery_charge_pcent = color_battery_pcent( 'G', 10, 100, $battery_charge_pcent );
         my $current_rate   = get_current_rate();
         my $period_expires = period_data_expiration();
-        _debug( "$battery_charge_pcent Inverter mode: $device_mode; Current rate: " . color_rate( 'R', 0, 50, $current_rate ) . "; Rate period data expires in $period_expires" );
+        _debug( "$battery_charge_pcent Inverter mode: $device_mode; Current rate: " . color_rate( 'R', 0, 40, $current_rate ) . "; Rate period data expires in $period_expires" );
         sleep($poll_interval);
     } else {
         _debug("Disconnected from MQTT server. Reconnecting.");
