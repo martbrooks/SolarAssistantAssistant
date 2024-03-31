@@ -1,0 +1,16 @@
+rules:
+  - Name: Charge the battery when electricity is cheap, or free.
+    Priority: 5
+    Conditions:
+      - ChargeLevelLessThan: 100
+        RateLessThan: 0
+    ModeIfTrue: Battery first
+    ModeIfFalse: Load first
+  - Name: Charge the battery overnight up to 80%
+    Priority: 10
+    Conditions:
+      - NotBefore: 22:11
+        NotAfter: 22:13
+        ChargeLevelLessThan: 80
+    ModeIfTrue: Battery first
+    ModeIfFalse: Load first

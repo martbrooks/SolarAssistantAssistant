@@ -47,6 +47,7 @@ while (1) {
 
     if ( $mqtt->tick() ) {
         my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
+        consult_the_rules( $device_mode, $battery_charge_pcent );
         $battery_charge_pcent = color_battery_pcent( 'G', 10, 100, $battery_charge_pcent );
         my $current_rate   = get_current_rate();
         my $period_expires = period_data_expiration();
@@ -58,6 +59,87 @@ while (1) {
 }
 
 $mqtt->disconnect();
+
+sub consult_the_rules {
+    my $current_state        = shift;
+    my $battery_charge_pcent = shift;
+    my $ruleset              = LoadFile('rules.yaml');
+    my %results              = ();
+    foreach my $rule ( @{ $ruleset->{rules} } ) {
+        my $rulename     = $rule->{Name};
+        my $rule_matches = 0;
+        foreach my $conditions ( @{ $rule->{Conditions} } ) {
+            my %conditions = %{$conditions};
+            $results{$rulename}{Priority}    = $rule->{Priority};
+            $results{$rulename}{ModeIfTrue}  = $rule->{ModeIfTrue};
+            $results{$rulename}{ModeIfFalse} = $rule->{ModeIfFalse};
+            foreach my $condition ( sort keys %conditions ) {
+                my $wanted = $conditions{$condition};
+                if ( $condition eq 'NotBefore' ) { $results{$rulename}{conditions}{$condition} = check_hhmm_notbefore($wanted); }
+                if ( $condition eq 'NotAfter' )  { $results{$rulename}{conditions}{$condition} = check_hhmm_notafter($wanted); }
+            }
+        }
+    }
+    my $priority       = 9999;
+    my $preferred_mode = 'Unknown';
+    my $winning_rule   = 'Unknown';
+    foreach my $rulename ( keys %results ) {
+        next unless ( keys %{ $results{$rulename}{conditions} } ) > 0;
+        my $failed = grep { $_ == 0 } values %{ $results{$rulename}{conditions} };
+        unless ($failed) {
+            if ( $results{$rulename}{Priority} < $priority ) {
+                $winning_rule   = $rulename;
+                $priority       = $results{$rulename}{Priority};
+                $preferred_mode = $results{$rulename}{ModeIfTrue};
+            }
+        }
+    }
+    return ( $winning_rule, $preferred_mode );
+}
+
+sub check_hhmm_notbefore {
+    my $wanted = shift;
+    $wanted = parse_hour_to_datetime($wanted);
+    my $now = DateTime->now( time_zone => 'local' );
+    if ( $now > $wanted ) {
+        #print "$now is not before $wanted\n";
+        return 1;
+    } else {
+        #print "$now is before $wanted\n";
+        return 0;
+    }
+}
+
+sub check_hhmm_notafter {
+    my $wanted = shift;
+    $wanted = parse_hour_to_datetime($wanted);
+    my $now = DateTime->now( time_zone => 'local' );
+    if ( $now < $wanted ) {
+
+        #print "$now is not after $wanted\n";
+        return 1;
+    } else {
+
+        #print "$now is after $wanted\n";
+        return 0;
+    }
+}
+
+sub parse_hour_to_datetime {
+    my $given_time = shift;
+    my ( $given_hour, $given_minute ) = split( ':', $given_time );
+    my $dt_now             = DateTime->now( time_zone => 'local' );
+    my $dt_with_given_time = DateTime->new(
+        year      => $dt_now->year,
+        month     => $dt_now->month,
+        day       => $dt_now->day,
+        hour      => $given_hour,
+        minute    => $given_minute,
+        second    => 0,
+        time_zone => 'local',
+    );
+    return $dt_with_given_time;
+}
 
 sub change_inverter_mode {
     my ( $curmode, $newmode ) = @_;
@@ -86,7 +168,8 @@ sub get_current_rate {
     my $rate = $sth->fetchrow_hashref;
     $sth->finish();
     $dbh->disconnect();
-    return sprintf( '%.2f', $rate->{rate} );
+    $rate = $rate->{rate} // 0;
+    return sprintf( '%.2f', $rate );
 }
 
 sub period_data_expiration {
