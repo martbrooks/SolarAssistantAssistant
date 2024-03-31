@@ -102,9 +102,11 @@ sub check_hhmm_notbefore {
     $wanted = parse_hour_to_datetime($wanted);
     my $now = DateTime->now( time_zone => 'local' );
     if ( $now > $wanted ) {
+
         #print "$now is not before $wanted\n";
         return 1;
     } else {
+
         #print "$now is before $wanted\n";
         return 0;
     }
@@ -275,6 +277,6 @@ sub _to_sqlite_time {
 sub _debug {
     return unless $debug == 1;
     my $message = shift;
-    my $now     = DateTime->now->strftime('%Y-%m-%dT%H:%M:%S%z');
+    my $now     = DateTime->now( time_zone => 'local' )->strftime('%Y-%m-%dT%H:%M:%S%z');
     print "[$now] $message\n";
 }
