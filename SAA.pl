@@ -47,7 +47,7 @@ while (1) {
 
     if ( $mqtt->tick() ) {
         my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
-        consult_the_rules( $device_mode, $battery_charge_pcent );
+        my ( $winning_rule, $preferred_mode ) = consult_the_rules( $device_mode, $battery_charge_pcent );
         $battery_charge_pcent = color_battery_pcent( 'G', 10, 100, $battery_charge_pcent );
         my $current_rate   = get_current_rate();
         my $period_expires = period_data_expiration();
@@ -75,8 +75,10 @@ sub consult_the_rules {
             $results{$rulename}{ModeIfFalse} = $rule->{ModeIfFalse};
             foreach my $condition ( sort keys %conditions ) {
                 my $wanted = $conditions{$condition};
-                if ( $condition eq 'NotBefore' ) { $results{$rulename}{conditions}{$condition} = check_hhmm_notbefore($wanted); }
-                if ( $condition eq 'NotAfter' )  { $results{$rulename}{conditions}{$condition} = check_hhmm_notafter($wanted); }
+                if ( $condition eq 'NotBefore' )          { $results{$rulename}{conditions}{$condition} = check_hhmm_notbefore($wanted); }
+                if ( $condition eq 'NotAfter' )           { $results{$rulename}{conditions}{$condition} = check_hhmm_notafter($wanted); }
+                if ( $condition eq 'BatteryLessThan' )    { $results{$rulename}{conditions}{$condition} = check_battery_less_than( $wanted, $battery_charge_pcent ); }
+                if ( $condition eq 'BatteryGreaterThan' ) { $results{$rulename}{conditions}{$condition} = check_battery_greater_than( $wanted, $battery_charge_pcent ); }
             }
         }
     }
@@ -102,12 +104,8 @@ sub check_hhmm_notbefore {
     $wanted = parse_hour_to_datetime($wanted);
     my $now = DateTime->now( time_zone => 'local' );
     if ( $now > $wanted ) {
-
-        #print "$now is not before $wanted\n";
         return 1;
     } else {
-
-        #print "$now is before $wanted\n";
         return 0;
     }
 }
@@ -117,12 +115,28 @@ sub check_hhmm_notafter {
     $wanted = parse_hour_to_datetime($wanted);
     my $now = DateTime->now( time_zone => 'local' );
     if ( $now < $wanted ) {
-
-        #print "$now is not after $wanted\n";
         return 1;
     } else {
+        return 0;
+    }
+}
 
-        #print "$now is after $wanted\n";
+sub check_battery_less_than {
+    my $wanted = shift;
+    my $actual = shift;
+    if ( $actual < $wanted ) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+sub check_battery_greater_than {
+    my $wanted = shift;
+    my $actual = shift;
+    if ( $actual > $wanted ) {
+        return 1;
+    } else {
         return 0;
     }
 }
