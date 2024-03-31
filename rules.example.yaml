@@ -9,8 +9,8 @@ rules:
   - Name: Charge the battery overnight up to 80%
     Priority: 10
     Conditions:
-      - NotBefore: 22:11
-        NotAfter: 22:13
+      - NotBefore: 22:56
+        NotAfter: 22:58
         BatteryLessThan: 80
     ModeIfTrue: Battery first
     ModeIfFalse: Load first
