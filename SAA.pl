@@ -40,18 +40,17 @@ while (1) {
     my $current_work_mode   = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
     my $preferred_work_mode = $default_work_mode;
 
-      if ( $current_work_mode eq '<Unknown>' ) {
+    if ( $current_work_mode eq '<Unknown>' ) {
         sleep(1);
         $mqtt->tick();
         next;
     }
     if ( $mqtt->tick() ) {
         my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
-        my ( $winning_rule, $preferred_work_mode ) = consult_the_rules( $battery_charge_pcent );
+        my ( $winning_rule, $preferred_work_mode ) = consult_the_rules($battery_charge_pcent);
         if ( $current_work_mode ne $preferred_work_mode ) {
             change_inverter_mode( $current_work_mode, $preferred_work_mode );
         }
-
         my $current_rate   = get_current_rate();
         my $period_expires = period_data_expiration();
         my $infoline       = color_battery_pcent( 'G', 10, 100, $battery_charge_pcent );
@@ -77,16 +76,15 @@ sub consult_the_rules {
         my $rule_matches = 0;
         foreach my $conditions ( @{ $rule->{Conditions} } ) {
             my %conditions = %{$conditions};
-            $results{$rulename}{Priority}    = $rule->{Priority};
-            $results{$rulename}{ModeIfTrue}  = $rule->{ModeIfTrue};
-            $results{$rulename}{ModeIfFalse} = $rule->{ModeIfFalse};
+            $results{$rulename}{Priority}   = $rule->{Priority};
+            $results{$rulename}{ModeIfTrue} = $rule->{ModeIfTrue};
             foreach my $condition ( sort keys %conditions ) {
                 my $wanted = $conditions{$condition};
-                if ( $condition eq 'NotBefore' )          { $results{$rulename}{conditions}{$condition} = check_hhmm_notbefore($wanted); }
-                if ( $condition eq 'NotAfter' )           { $results{$rulename}{conditions}{$condition} = check_hhmm_notafter($wanted); }
-                if ( $condition eq 'BatteryLessThan' )    { $results{$rulename}{conditions}{$condition} = check_battery_less_than( $wanted, $battery_charge_pcent ); }
-                if ( $condition eq 'BatteryGreaterThan' ) { $results{$rulename}{conditions}{$condition} = check_battery_greater_than( $wanted, $battery_charge_pcent ); }
-                if ( $condition eq 'RateLessThan' )       { $results{$rulename}{conditions}{$condition} = check_rate_less_than( $wanted, get_current_rate() ); }
+                if ( $condition eq 'NotBefore' )       { $results{$rulename}{conditions}{$condition} = check_hhmm_notbefore($wanted); }
+                if ( $condition eq 'NotAfter' )        { $results{$rulename}{conditions}{$condition} = check_hhmm_notafter($wanted); }
+                if ( $condition eq 'BatteryLessThan' ) { $results{$rulename}{conditions}{$condition} = check_battery_lessthan( $wanted, $battery_charge_pcent ); }
+                if ( $condition eq 'BatteryMoreThan' ) { $results{$rulename}{conditions}{$condition} = check_battery_morethan( $wanted, $battery_charge_pcent ); }
+                if ( $condition eq 'RateLessThan' )    { $results{$rulename}{conditions}{$condition} = check_rate_lessthan( $wanted, get_current_rate() ); }
             }
         }
     }
@@ -104,6 +102,8 @@ sub consult_the_rules {
             }
         }
     }
+    _debug("Winning rule: $winning_rule");
+    _debug("Preferred work mode: $preferred_work_mode");
     return ( $winning_rule, $preferred_work_mode );
 }
 
@@ -129,30 +129,30 @@ sub check_hhmm_notafter {
     }
 }
 
-sub check_battery_less_than {
+sub check_battery_lessthan {
     my $wanted = shift;
     my $actual = shift;
-    if ( $actual < $wanted ) {
+    if ( $actual <= $wanted ) {
         return 1;
     } else {
         return 0;
     }
 }
 
-sub check_battery_greater_than {
+sub check_battery_morethan {
     my $wanted = shift;
     my $actual = shift;
-    if ( $actual > $wanted ) {
+    if ( $actual >= $wanted ) {
         return 1;
     } else {
         return 0;
     }
 }
 
-sub check_rate_less_than {
+sub check_rate_lessthan {
     my $wanted = shift;
     my $rate   = shift;
-    if ( $rate < $wanted ) {
+    if ( $rate <= $wanted ) {
         return 1;
     } else {
         return 0;
