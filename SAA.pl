@@ -20,8 +20,9 @@ my $config = LoadFile('SAA.yaml');
 my %state  = ();
 
 my $inverter_id          = 'inverter_' . $config->{inverter_id};
-my $sqlite_file          = $config->{database_file} // 'period_rates.db';
-my $poll_interval        = $config->{poll_interval} // ( $debug == 1 ? 5 : 60 );
+my $default_work_mode    = $config->{default_work_mode} // 'Load first';
+my $sqlite_file          = $config->{database_file}     // 'period_rates.db';
+my $poll_interval        = $config->{poll_interval}     // ( $debug == 1 ? 5 : 60 );
 my $sa_mqtt_port         = $config->{sa_mqtt_port};
 my $sa_mqtt_server       = $config->{sa_mqtt_server};
 my $sa_mqtt_topic_prefix = $config->{sa_mqtt_topic_prefix};
@@ -36,27 +37,29 @@ $mqtt->subscribe( $sa_mqtt_topic_prefix . '/#', \&received );
 $mqtt->tick();
 
 while (1) {
-    my $device_mode    = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
-    my $preferred_mode = '<Unknown>';
+    my $current_work_mode   = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
+    my $preferred_work_mode = $default_work_mode;
 
-    if ( $device_mode eq '<Unknown>' ) {
+      if ( $current_work_mode eq '<Unknown>' ) {
         sleep(1);
         $mqtt->tick();
         next;
     }
-
     if ( $mqtt->tick() ) {
         my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
-        my ( $winning_rule, $preferred_mode ) = consult_the_rules( $device_mode, $battery_charge_pcent );
-        if ( $device_mode ne $preferred_mode ) {
-            change_inverter_mode( $device_mode, $preferred_mode );
-        } elsif ($preferred_mode eq '<Unknown>') {
-            change_inverter_mode( $device_mode, 'Load first');
+        my ( $winning_rule, $preferred_work_mode ) = consult_the_rules( $current_work_mode, $battery_charge_pcent );
+        if ( $current_work_mode ne $preferred_work_mode ) {
+            change_inverter_mode( $current_work_mode, $preferred_work_mode );
         }
-        $battery_charge_pcent = color_battery_pcent( 'G', 10, 100, $battery_charge_pcent );
+
         my $current_rate   = get_current_rate();
         my $period_expires = period_data_expiration();
-        _debug( "$battery_charge_pcent Curr mode: $device_mode; Pref mode: $preferred_mode; Curr rate: " . color_rate( 'R', 0, 40, $current_rate ) . "; Rate period data expires in $period_expires" );
+        my $infoline       = color_battery_pcent( 'G', 10, 100, $battery_charge_pcent );
+        $infoline .= " Curr mode: $current_work_mode; ";
+        $infoline .= "Pref mode: $preferred_work_mode; ";
+        $infoline .= "Curr rate: " . color_rate( 'R', 0, 40, $current_rate ) . "; ";
+        $infoline .= "Rate period data expires in $period_expires";
+        _debug($infoline);
         sleep($poll_interval);
     } else {
         _debug("Disconnected from MQTT server. Reconnecting.");
@@ -66,7 +69,6 @@ while (1) {
 $mqtt->disconnect();
 
 sub consult_the_rules {
-    my $current_state        = shift;
     my $battery_charge_pcent = shift;
     my $ruleset              = LoadFile('rules.yaml');
     my %results              = ();
@@ -88,21 +90,21 @@ sub consult_the_rules {
             }
         }
     }
-    my $priority       = 9999;
-    my $preferred_mode = '<Unknown>';
-    my $winning_rule   = '<Unknown>';
+    my $priority            = 9999;
+    my $preferred_work_mode = $default_work_mode;
+    my $winning_rule        = 'Fallback rule';
     foreach my $rulename ( keys %results ) {
         next unless ( keys %{ $results{$rulename}{conditions} } ) > 0;
         my $failed = grep { $_ == 0 } values %{ $results{$rulename}{conditions} };
         unless ($failed) {
             if ( $results{$rulename}{Priority} < $priority ) {
-                $winning_rule   = $rulename;
-                $priority       = $results{$rulename}{Priority};
-                $preferred_mode = $results{$rulename}{ModeIfTrue};
+                $winning_rule        = $rulename;
+                $priority            = $results{$rulename}{Priority};
+                $preferred_work_mode = $results{$rulename}{ModeIfTrue};
             }
         }
     }
-    return ( $winning_rule, $preferred_mode );
+    return ( $winning_rule, $preferred_work_mode );
 }
 
 sub check_hhmm_notbefore {
