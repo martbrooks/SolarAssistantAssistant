@@ -47,7 +47,7 @@ while (1) {
     }
     if ( $mqtt->tick() ) {
         my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
-        my ( $winning_rule, $preferred_work_mode ) = consult_the_rules( $current_work_mode, $battery_charge_pcent );
+        my ( $winning_rule, $preferred_work_mode ) = consult_the_rules( $battery_charge_pcent );
         if ( $current_work_mode ne $preferred_work_mode ) {
             change_inverter_mode( $current_work_mode, $preferred_work_mode );
         }
