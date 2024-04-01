@@ -22,7 +22,7 @@ my %state  = ();
 my $inverter_id          = 'inverter_' . $config->{inverter_id};
 my $default_work_mode    = $config->{default_work_mode} // 'Load first';
 my $sqlite_file          = $config->{database_file}     // 'period_rates.db';
-my $poll_interval        = $config->{poll_interval}     // ( $debug == 1 ? 5 : 60 );
+my $poll_interval        = $config->{poll_interval}     // 60;
 my $sa_mqtt_port         = $config->{sa_mqtt_port};
 my $sa_mqtt_server       = $config->{sa_mqtt_server};
 my $sa_mqtt_topic_prefix = $config->{sa_mqtt_topic_prefix};
@@ -102,8 +102,6 @@ sub consult_the_rules {
             }
         }
     }
-    _debug("Winning rule: $winning_rule");
-    _debug("Preferred work mode: $preferred_work_mode");
     return ( $winning_rule, $preferred_work_mode );
 }
 

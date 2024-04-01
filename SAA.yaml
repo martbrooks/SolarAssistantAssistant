@@ -3,11 +3,4 @@ sa_mqtt_port: 1883
 sa_mqtt_username:
 sa_mqtt_password:
 sa_mqtt_topic_prefix: solar_assistant
-poll_interval: 5
-
-plunge_db_name: octopus_plunges
-plunge_db_user: martin
-
 inverter_id: 1
-
-plunge_threshold: 3
