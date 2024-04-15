@@ -15,7 +15,9 @@ use Time::Duration;
 use Time::Piece;
 use YAML::XS 'LoadFile';
 
-my $debug  = 1;
+my $debug              = 1;
+my $fake_inverter_mode = 1;
+
 my $config = LoadFile('SAA.yaml');
 my %state  = ();
 
@@ -45,19 +47,38 @@ while (1) {
         $mqtt->tick();
         next;
     }
+
     if ( $mqtt->tick() ) {
         my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
         my ( $winning_rule, $preferred_work_mode ) = consult_the_rules($battery_charge_pcent);
+
+        if ( $fake_inverter_mode == 1 ) {
+            $current_work_mode = $preferred_work_mode;
+        }
+
         if ( $current_work_mode ne $preferred_work_mode ) {
             change_inverter_mode( $current_work_mode, $preferred_work_mode );
         }
-        my $current_rate   = get_current_rate();
+
+        my $current_rate = get_current_rate();
+
         my $period_expires = period_data_expiration();
-        my $infoline       = color_battery_pcent( 'G', 10, 100, $battery_charge_pcent );
+        if ( $period_expires < 0 ) {
+            refresh_period_data();
+            $period_expires = period_data_expiration();
+        }
+
+        my $update_age = '<Unknown>';
+        if ( $state{LastUpdate} ) {
+            $update_age = _datetime_diff( DateTime->now( time_zone => 'local' ), $state{LastUpdate} );
+        }
+
+        my $infoline = color_battery_pcent( 'G', 10, 100, $battery_charge_pcent );
         $infoline .= " Curr mode: $current_work_mode; ";
         $infoline .= "Pref mode: $preferred_work_mode; ";
         $infoline .= "Curr rate: " . color_rate( 'R', 0, 40, $current_rate ) . "; ";
-        $infoline .= "Rate period data expires in $period_expires";
+        $infoline .= "Data expires in $period_expires ";
+        $infoline .= "Last update: $update_age ago.";
         _debug($infoline);
         sleep($poll_interval);
     } else {
@@ -185,6 +206,7 @@ sub received {
     my ( $topic, $message ) = @_;
     my @keys = split( '/', $topic );
     my $ref  = \%state;
+    $ref->{LastUpdate} = DateTime->now( time_zone => 'local' );
     for my $i ( 0 .. $#keys - 1 ) {
         my $k = $keys[$i];
         $ref->{$k} ||= {};
@@ -296,6 +318,12 @@ sub create_database {
     my $dbh = DBI->connect( "dbi:SQLite:$sqlite_file", "", "" );
     $dbh->do("CREATE TABLE period_rates (period_start TIMESTAMP, period_end TIMESTAMP, rate REAL)");
     $dbh->disconnect();
+}
+
+# Return difference between two DateTime objects in seconds
+sub _datetime_diff {
+    my ( $dt1, $dt2 ) = @_;
+    return $dt1->epoch - $dt2->epoch;
 }
 
 sub _to_sqlite_time {
