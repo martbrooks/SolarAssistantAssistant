@@ -10,13 +10,9 @@ use JSON;
 use LWP::UserAgent;
 use Net::MQTT::Simple;
 use String::Pad qw(pad);
-use Term::ANSIColor;
 use Time::Duration;
 use Time::Piece;
 use YAML::XS 'LoadFile';
-
-my $debug              = 1;
-my $fake_inverter_mode = 1;
 
 my $config = LoadFile('SAA.yaml');
 my %state  = ();
@@ -34,59 +30,53 @@ unless ( -e $sqlite_file ) {
     refresh_period_data();
 }
 
-my $mqtt = Net::MQTT::Simple->new("$sa_mqtt_server:$sa_mqtt_port");
+my $current_work_mode = '<Unknown>';
+my $mqtt              = Net::MQTT::Simple->new("$sa_mqtt_server:$sa_mqtt_port");
 $mqtt->subscribe( $sa_mqtt_topic_prefix . '/#', \&received );
 $mqtt->tick();
 
 while (1) {
-    my $current_work_mode   = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
-    my $preferred_work_mode = $default_work_mode;
-
+    print "Waiting for SolarAssistant data....\n";
+    $current_work_mode   = $state{solar_assistant}{$inverter_id}{device_mode}{state} // '<Unknown>';
     if ( $current_work_mode eq '<Unknown>' ) {
-        sleep(1);
+        sleep(5);
         $mqtt->tick();
-        next;
-    }
-
-    if ( $mqtt->tick() ) {
-        my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
-        my ( $winning_rule, $preferred_work_mode ) = consult_the_rules($battery_charge_pcent);
-
-        if ( $fake_inverter_mode == 1 ) {
-            $current_work_mode = $preferred_work_mode;
-        }
-
-        if ( $current_work_mode ne $preferred_work_mode ) {
-            change_inverter_mode( $current_work_mode, $preferred_work_mode );
-        }
-
-        my $current_rate = get_current_rate();
-
-        my $period_expires = period_data_expiration();
-        if ( $period_expires < 0 ) {
-            refresh_period_data();
-            $period_expires = period_data_expiration();
-        }
-
-        my $update_age = '<Unknown>';
-        if ( $state{LastUpdate} ) {
-            $update_age = _datetime_diff( DateTime->now( time_zone => 'local' ), $state{LastUpdate} );
-        }
-
-        my $infoline = color_battery_pcent( 'G', 10, 100, $battery_charge_pcent );
-        $infoline .= " Curr mode: $current_work_mode; ";
-        $infoline .= "Pref mode: $preferred_work_mode; ";
-        $infoline .= "Curr rate: " . color_rate( 'R', 0, 40, $current_rate ) . "; ";
-        $infoline .= "Data expires in $period_expires ";
-        $infoline .= "Last update: $update_age ago.";
-        _debug($infoline);
-        sleep($poll_interval);
     } else {
-        _debug("Disconnected from MQTT server. Reconnecting.");
+        print "SolarAssistant data received.\n";
+        last;
     }
 }
 
-$mqtt->disconnect();
+my $preferred_work_mode = $default_work_mode;
+
+if ( $current_work_mode eq '<Unknown>' ) {
+    sleep(1);
+    $mqtt->tick();
+    next;
+}
+
+my $battery_charge_pcent = $state{solar_assistant}{total}{battery_state_of_charge}{state} // 0;
+my ( $winning_rule, $preferred_work_mode ) = consult_the_rules($battery_charge_pcent);
+
+my $current_rate = get_current_rate();
+
+my $period_expires = period_data_expiration();
+if ( $period_expires < 0 ) {
+    refresh_period_data();
+    $period_expires = period_data_expiration();
+}
+
+my $infoline = "Batt: $battery_charge_pcent\%; ";
+$infoline .= " Curr mode: $current_work_mode; ";
+$infoline .= "Pref mode: $preferred_work_mode; ";
+$infoline .= "Curr rate: $current_rate; ";
+$infoline .= "Winning rule: \'$winning_rule\'";
+
+if ( $current_work_mode ne $preferred_work_mode ) {
+    change_inverter_mode( $current_work_mode, $preferred_work_mode );
+}
+
+_debug($infoline);
 
 sub consult_the_rules {
     my $battery_charge_pcent = shift;
@@ -244,39 +234,6 @@ sub period_data_expiration {
     return $age;
 }
 
-sub calculate_rgb {
-    my ( $mode, $min, $max, $actual ) = @_;
-    if ( $actual < $min ) {
-        $actual = $min;
-    }
-    if ( $actual > $max ) {
-        $actual = $max;
-    }
-    my $percentage = ( $actual - $min ) / ( $max - $min );
-    my ( $r, $g );
-    if ( $mode eq 'R' ) {
-        $r = int( 255 * $percentage );
-        $g = int( 255 * ( 1 - $percentage ) );
-    } else {
-        $r = int( 255 * ( 1 - $percentage ) );
-        $g = int( 255 * $percentage );
-    }
-    return sprintf( "r%03dg%03db%03d", $r, $g, 0 );
-}
-
-sub color_rate {
-    my ( $mode, $min, $max, $actual ) = @_;
-    my $color = calculate_rgb( $mode, $min, $max, $actual );
-    return color("bold $color") . $actual . color('reset');
-}
-
-sub color_battery_pcent {
-    my ( $mode, $min, $max, $actual ) = @_;
-    my $background = calculate_rgb( $mode, $min, $max, $actual );
-    my $battery    = pad( "$actual%", 9, "c" );
-    return color("black on_$background") . $battery . color('reset');
-}
-
 sub refresh_period_data {
     my $OCTOPUS_API = "https://api.octopus.energy/v1";
     my $PRODUCT     = 'AGILE-FLEX-22-11-25/electricity-tariffs/E-1R-AGILE-FLEX-22-11-25-A';
@@ -320,7 +277,6 @@ sub create_database {
     $dbh->disconnect();
 }
 
-# Return difference between two DateTime objects in seconds
 sub _datetime_diff {
     my ( $dt1, $dt2 ) = @_;
     return $dt1->epoch - $dt2->epoch;
@@ -333,7 +289,6 @@ sub _to_sqlite_time {
 }
 
 sub _debug {
-    return unless $debug == 1;
     my $message = shift;
     my $now     = DateTime->now( time_zone => 'local' )->strftime('%Y-%m-%dT%H:%M:%S%z');
     print "[$now] $message\n";
